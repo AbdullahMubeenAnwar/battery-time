@@ -1,0 +1,54 @@
+name: Release
+
+# Triggers when you push a version tag: git tag v1.2.3 && git push --tags
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    name: Build DMG & publish release
+    runs-on: macos-latest   # Requires macOS 26 SDK (Xcode 17+)
+
+    permissions:
+      contents: write       # needed to create the GitHub Release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select --switch /Applications/Xcode.app
+
+      - name: Show SDK info
+        run: xcrun --show-sdk-version
+
+      - name: Build app
+        run: ./script/build_and_run.sh build
+
+      - name: Build DMG
+        run: ./script/build_dmg.sh
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Battery Time ${{ github.ref_name }}"
+          body: |
+            ## Battery Time ${{ github.ref_name }}
+
+            ### Install
+            1. Download **BatteryTime-${{ steps.version.outputs.version }}.dmg** below
+            2. Open the DMG, drag Battery Time → Applications
+            3. Launch — battery icon appears in your menu bar
+
+            **Requires macOS 26 (Tahoe) or later.**
+          files: release/BatteryTime-*.dmg
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
