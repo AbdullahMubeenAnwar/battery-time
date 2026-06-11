@@ -9,9 +9,9 @@ macOS menu bar app for real-time battery monitoring
 [![macOS](https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-0A84FF?style=flat-square)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/muhammad-abdullah/battery-time?style=flat-square&color=30D158)](https://github.com/muhammad-abdullah/battery-time/releases/latest)
+[![Release](https://img.shields.io/github/v/release/AbdullahMubeenAnwar/battery-time?style=flat-square&color=30D158)](https://github.com/AbdullahMubeenAnwar/battery-time/releases/latest)
 
-[Download](https://github.com/muhammad-abdullah/battery-time/releases/latest) · [Build from source](#build-from-source) · [Contributing](#contributing)
+[Download](https://github.com/AbdullahMubeenAnwar/battery-time/releases/latest) · [Build from source](#build-from-source) · [Contributing](#contributing)
 
 <br />
 
@@ -52,7 +52,7 @@ No subscriptions. No telemetry. Fully open source.
 
 ### Download *(recommended)*
 
-1. Go to [**Releases**](https://github.com/muhammad-abdullah/battery-time/releases/latest)
+1. Go to [**Releases**](https://github.com/AbdullahMubeenAnwar/battery-time/releases/latest)
 2. Download `BatteryTime-x.x.dmg`
 3. Open the DMG → drag Battery Time to Applications
 4. Launch and the battery icon appears in your menu bar
@@ -70,7 +70,7 @@ Requires **macOS 13 (Ventura)** or later. Liquid glass UI is shown on macOS 26 (
 **Requirements:** macOS 13+ · Xcode Command Line Tools (no full Xcode needed)
 
 ```bash
-git clone https://github.com/muhammad-abdullah/battery-time.git
+git clone https://github.com/AbdullahMubeenAnwar/battery-time.git
 cd battery-time
 
 # Build and launch
@@ -113,7 +113,7 @@ Frameworks: `SwiftUI` `AppKit` `IOKit` `ServiceManagement`
 Bug reports and pull requests are welcome. For major changes please open an issue first.
 
 ```bash
-git clone https://github.com/muhammad-abdullah/battery-time.git
+git clone https://github.com/AbdullahMubeenAnwar/battery-time.git
 cd battery-time
 ./script/build_and_run.sh
 ```
