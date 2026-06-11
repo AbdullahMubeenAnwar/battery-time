@@ -62,7 +62,7 @@ build_app() {
   xcrun swiftc \
 	    -swift-version 5 \
 	    -target "$(uname -m)-apple-macosx13.0" \
-	    "${sdk_flags[@]}" \
+	    "${sdk_flags[@]+"${sdk_flags[@]}"}" \
 	    -framework SwiftUI \
 	    -framework Charts \
 	    -framework AppKit \
