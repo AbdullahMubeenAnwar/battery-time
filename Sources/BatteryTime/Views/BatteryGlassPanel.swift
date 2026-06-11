@@ -1,6 +1,10 @@
 import SwiftUI
 
 // MARK: - Glass panel / capsule (macOS 26 liquid glass; material fallback on older OS)
+//
+// HAS_MACOS26_SDK is set by build_and_run.sh only when the active SDK declares
+// the macOS 26 glass APIs. Without it, the compiler can't resolve those symbols
+// even inside #available blocks, so we compile the fallback paths only.
 
 struct BatteryGlassPanelModifier: ViewModifier {
     let cornerRadius: CGFloat
@@ -8,6 +12,7 @@ struct BatteryGlassPanelModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
+#if HAS_MACOS26_SDK
         if #available(macOS 26, *) {
             if interactive {
                 content.glassEffect(
@@ -27,6 +32,13 @@ struct BatteryGlassPanelModifier: ViewModifier {
                         .fill(.regularMaterial)
                 )
         }
+#else
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.regularMaterial)
+            )
+#endif
     }
 }
 
@@ -35,6 +47,7 @@ struct BatteryGlassCapsuleModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
+#if HAS_MACOS26_SDK
         if #available(macOS 26, *) {
             if interactive {
                 content.glassEffect(.regular.interactive(), in: Capsule())
@@ -44,6 +57,9 @@ struct BatteryGlassCapsuleModifier: ViewModifier {
         } else {
             content.background(Capsule().fill(.regularMaterial))
         }
+#else
+        content.background(Capsule().fill(.regularMaterial))
+#endif
     }
 }
 
@@ -64,11 +80,15 @@ struct GlassContainer<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
+#if HAS_MACOS26_SDK
         if #available(macOS 26, *) {
             GlassEffectContainer(spacing: spacing) { content() }
         } else {
             content()
         }
+#else
+        content()
+#endif
     }
 }
 
@@ -77,11 +97,15 @@ struct GlassContainer<Content: View>: View {
 private struct GlassButtonModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
+#if HAS_MACOS26_SDK
         if #available(macOS 26, *) {
             content.buttonStyle(.glass)
         } else {
             content.buttonStyle(.bordered)
         }
+#else
+        content.buttonStyle(.bordered)
+#endif
     }
 }
 
@@ -96,11 +120,15 @@ extension View {
 private struct ScrollEdgeSoftTopModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
+#if HAS_MACOS26_SDK
         if #available(macOS 26, *) {
             content.scrollEdgeEffectStyle(.soft, for: .top)
         } else {
             content
         }
+#else
+        content
+#endif
     }
 }
 

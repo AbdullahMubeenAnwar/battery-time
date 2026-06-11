@@ -49,9 +49,20 @@ build_app() {
     source_files+=("$source_file")
   done <<<"$source_list"
 
+  # Pass -DHAS_MACOS26_SDK only when the active SDK actually declares the
+  # macOS 26 glass APIs; older SDKs (e.g. macOS 15 on CI) cannot compile
+  # those symbols even inside #available blocks.
+  local sdk_flags=()
+  local sdk_ver
+  sdk_ver="$(xcrun --sdk macosx --show-sdk-version 2>/dev/null || true)"
+  if [[ "${sdk_ver%%.*}" -ge 26 ]] 2>/dev/null; then
+    sdk_flags=(-DHAS_MACOS26_SDK)
+  fi
+
   xcrun swiftc \
 	    -swift-version 5 \
 	    -target "$(uname -m)-apple-macosx13.0" \
+	    "${sdk_flags[@]}" \
 	    -framework SwiftUI \
 	    -framework Charts \
 	    -framework AppKit \
