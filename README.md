@@ -1,119 +1,125 @@
 <div align="center">
 
-# 🔋 Battery Time
+<img src="Assets/icon.png" width="96" alt="Battery Time" />
 
-**A fast, native macOS menu bar app for real-time battery monitoring**
+# Battery Time
 
-[![macOS 26+](https://img.shields.io/badge/macOS-26%2B-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
-[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
-[![License: MIT](https://img.shields.io/badge/license-MIT-0A84FF?style=flat-square)](LICENSE)
-[![Releases](https://img.shields.io/github/v/release/abdullahubeen/battery-time?style=flat-square&color=34C759)](https://github.com/abdullahubeen/battery-time/releases/latest)
+macOS menu bar app for real-time battery monitoring
 
-[**Download DMG**](#-install) · [Build from source](#-build-from-source) · [Features](#-features)
+[![macOS](https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
+[![License](https://img.shields.io/badge/license-MIT-0A84FF?style=flat-square)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/muhammad-abdullah/battery-time?style=flat-square&color=30D158)](https://github.com/muhammad-abdullah/battery-time/releases/latest)
 
----
+[Download](https://github.com/muhammad-abdullah/battery-time/releases/latest) · [Build from source](#build-from-source) · [Contributing](#contributing)
 
-![Battery Time screenshot](Assets/screenshot.png)
+<br />
+
+<video src="Assets/demo.mp4" autoplay loop muted playsinline width="760"></video>
 
 </div>
 
----
+<br />
 
-## ✨ Features
+## Overview
 
-| | |
-|---|---|
-| 🔋 **Menu bar widget** | Battery icon with %, time remaining, or both — 6 display modes |
-| 📊 **30-day history** | SQLite-backed battery history with automatic macOS powerlog backfill |
-| 📈 **Usage charts** | Day / week / month battery level charts with power-connection overlay |
-| ⚡️ **Smart estimates** | Rolling 10 / 30 / 60-min drain rates; falls back to macOS system estimate |
-| 🖥 **Screen time tracking** | Minute-resolution screen-active time, charted alongside battery |
-| ❤️ **Health & diagnostics** | Cycle count, max capacity %, temperature, adapter wattage |
-| 🔥 **Top energy processes** | Which apps are draining the most right now |
-| 🎨 **Colorized icon** | Green / orange / red battery fill, optional XL size |
-| 🚀 **Launch at login** | Stays in the background keeping history complete |
+Battery Time lives in your menu bar and gives you a clear picture of your battery right now. It tracks drain rates and health diagnostics without relying on iCloud or any external services.
 
----
+No subscriptions. No telemetry. Fully open source.
 
-## 📦 Install
+<br />
 
-### Option 1 — Download DMG *(recommended)*
+## Features
 
-1. Open the [**latest release**](https://github.com/abdullahubeen/battery-time/releases/latest)
+**Menu bar**
+- Six display modes: icon only · percentage · time remaining · both · inner percentage · charger outside
+- Colorized fill (green / orange / red) based on charge level
+- Optional XL size
+- Hides additional info when battery is full
+
+**Estimates**
+- Rolling 10 / 30 / 60-minute drain and charge rates computed from your own usage
+- Falls back to the macOS system estimate when not enough data is available
+
+**Health & diagnostics**
+- Cycle count, maximum capacity, battery condition
+- Temperature, adapter wattage, charging limit
+- Top energy-consuming processes right now
+
+<br />
+
+## Install
+
+### Download *(recommended)*
+
+1. Go to [**Releases**](https://github.com/muhammad-abdullah/battery-time/releases/latest)
 2. Download `BatteryTime-x.x.dmg`
-3. Open the DMG, drag **Battery Time** → **Applications**
-4. Launch it — the battery icon appears in your menu bar
+3. Open the DMG → drag Battery Time to Applications
+4. Launch and the battery icon appears in your menu bar
 
-> **Requires macOS 26 (Tahoe) or later.**
+Requires **macOS 13 (Ventura)** or later. Liquid glass UI is shown on macOS 26 (Tahoe); older versions use a material fallback.
 
-### Option 2 — Homebrew Cask *(coming soon)*
+### Homebrew
 
-```bash
-brew install --cask battery-time
-```
+> Homebrew Cask coming soon.
 
----
+<br />
 
-## 🔨 Build from source
+## Build from source
 
-**Requirements:** macOS 26+, Xcode 17+
+**Requirements:** macOS 13+ · Xcode Command Line Tools (no full Xcode needed)
 
 ```bash
-# Clone
-git clone https://github.com/abdullahubeen/battery-time.git
+git clone https://github.com/muhammad-abdullah/battery-time.git
 cd battery-time
 
 # Build and launch
 ./script/build_and_run.sh
 
-# Or build a release DMG (output: release/BatteryTime-x.x.dmg)
+# Build a release DMG → release/BatteryTime-x.x.dmg
 ./script/build_dmg.sh
 ```
 
 Additional build modes:
 
-```bash
-./script/build_and_run.sh debug    # build + attach lldb
-./script/build_and_run.sh logs     # launch + stream os_log output
-./script/build_and_run.sh verify   # launch + confirm it started
+```
+./script/build_and_run.sh debug      build + attach lldb
+./script/build_and_run.sh logs       launch + stream os_log
+./script/build_and_run.sh verify     launch + confirm started
 ```
 
----
+<br />
 
-## 🏗 Architecture
+## Architecture
 
-Battery Time is a pure Swift / SwiftUI / AppKit app — **zero third-party dependencies**.
+Zero third-party dependencies. Only Apple frameworks.
 
 ```
-BatteryTimeAppModel          ← root object, owns everything
-├── BatteryMonitor            ← ObservableObject, polls IOKit every 60 s
-│   ├── PowerSourceClient     ← reads live data from IOKit
-│   ├── BatteryEstimator      ← rolling 10/30/60-min drain/charge rates
-│   ├── BatteryHistoryStore   ← SQLite3 persistence (30-day retention, WAL mode)
-│   ├── PowerlogBackfillClient← imports macOS powerlog history once/hr
-│   ├── ProcessSampler        ← top energy-consuming processes
-│   ├── ScreenActivityMonitor ← screen-on time in minute buckets
-│   └── BatteryUsageAnalyzer  ← synthesises all sources into BatteryUsageReport
-├── BatteryStatusItemController ← menu bar icon + popover
-└── MainWindowController      ← main window (Overview + Usage tabs)
+BatteryTimeAppModel
+├── BatteryMonitor              ObservableObject, polls IOKit every 60 s
+│   ├── PowerSourceClient       reads live data from IOKit
+│   ├── BatteryEstimator        rolling 10 / 30 / 60-min drain rates
+│   └── ProcessSampler          top energy-consuming processes
+├── BatteryStatusItemController menu bar icon + popover
+└── MainWindowController        main window
 ```
 
-**Frameworks:** SwiftUI · Charts · AppKit · IOKit · ServiceManagement · sqlite3
+Frameworks: `SwiftUI` `AppKit` `IOKit` `ServiceManagement`
 
----
+<br />
 
-## 🤝 Contributing
+## Contributing
 
-Pull requests welcome. Please open an issue first to discuss major changes.
+Bug reports and pull requests are welcome. For major changes please open an issue first.
 
 ```bash
-git clone https://github.com/abdullahubeen/battery-time.git
+git clone https://github.com/muhammad-abdullah/battery-time.git
 cd battery-time
-./script/build_and_run.sh   # build + run
+./script/build_and_run.sh
 ```
 
----
+<br />
 
-## 📄 License
+## License
 
-[MIT](LICENSE) © Abdullah Mubeen
+[MIT](LICENSE) © 2026 Muhammad Abdullah

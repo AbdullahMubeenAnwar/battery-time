@@ -3,12 +3,44 @@ import SwiftUI
 
 struct MenuBarBatteryView: View {
     var openMainWindow: (() -> Void)?
+    var onHeightChange: ((CGFloat) -> Void)?
 
     @EnvironmentObject private var batteryMonitor: BatteryMonitor
     @Environment(\.openWindow) private var openWindow
 
+    // Sections
+    @AppStorage(BatteryTimeAppSettings.popoverShowDetailsKey)
+    private var showDetails = BatteryTimeAppSettings.defaultPopoverShowDetails
+    @AppStorage(BatteryTimeAppSettings.popoverShowTopProcessKey)
+    private var showTopProcess = BatteryTimeAppSettings.defaultPopoverShowTopProcess
+    @AppStorage(BatteryTimeAppSettings.popoverShowUptimeKey)
+    private var showUptime = BatteryTimeAppSettings.defaultPopoverShowUptime
+
+    // Layout
+    @AppStorage(BatteryTimeAppSettings.popoverCompactKey)
+    private var compact = BatteryTimeAppSettings.defaultPopoverCompact
+
+    // Individual rows
+    @AppStorage(BatteryTimeAppSettings.popoverShowChargeKey)
+    private var showCharge = BatteryTimeAppSettings.defaultPopoverShowCharge
+    @AppStorage(BatteryTimeAppSettings.popoverShowTimeRemainingKey)
+    private var showTimeRemaining = BatteryTimeAppSettings.defaultPopoverShowTimeRemaining
+    @AppStorage(BatteryTimeAppSettings.popoverShowDrainRateKey)
+    private var showDrainRate = BatteryTimeAppSettings.defaultPopoverShowDrainRate
+    @AppStorage(BatteryTimeAppSettings.popoverShowCapacityKey)
+    private var showCapacity = BatteryTimeAppSettings.defaultPopoverShowCapacity
+    @AppStorage(BatteryTimeAppSettings.popoverShowTemperatureKey)
+    private var showTemperature = BatteryTimeAppSettings.defaultPopoverShowTemperature
+    @AppStorage(BatteryTimeAppSettings.popoverShowEstimateSourceKey)
+    private var showEstimateSource = BatteryTimeAppSettings.defaultPopoverShowEstimateSource
+    @AppStorage(BatteryTimeAppSettings.popoverShowChargeLimitKey)
+    private var showChargeLimit = BatteryTimeAppSettings.defaultPopoverShowChargeLimit
+    @AppStorage(BatteryTimeAppSettings.popoverShowDrainStatusKey)
+    private var showDrainStatus = BatteryTimeAppSettings.defaultPopoverShowDrainStatus
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: compact ? 8 : 14) {
+            // Header — always visible
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(batteryMonitor.snapshot.stateTitle)
@@ -28,24 +60,44 @@ struct MenuBarBatteryView: View {
                     .symbolRenderingMode(.hierarchical)
             }
 
-            Divider()
+            // Detail rows section
+            if showDetails {
+                Divider()
 
-            VStack(alignment: .leading, spacing: 8) {
-                detailRow("Charge", batteryMonitor.percentageText ?? "--")
-                if let limit = batteryMonitor.snapshot.chargingLimitPercent {
-                    detailRow("Charge Limit", "\(limit)%")
-                }
-                detailRow(batteryMonitor.snapshot.isCharging ? "Time to Full" : "Runtime", batteryMonitor.timeText ?? "--")
-                detailRow(rateTitle, rateValue)
-                detailRow("Capacity", batteryMonitor.snapshot.healthText)
-                detailRow("Temperature", BatteryDiagnosticsFormatter.temperature(batteryMonitor.snapshot.temperatureCelsius))
-                detailRow("Estimate Source", batteryMonitor.estimate.sourceText)
-                if batteryMonitor.estimate.ratePercentPerHour == nil {
-                    detailRow("Drain Status", "Needs samples")
+                VStack(alignment: .leading, spacing: compact ? 5 : 8) {
+                    if showCharge {
+                        detailRow("Charge", batteryMonitor.percentageText ?? "--")
+                    }
+                    if showChargeLimit, let limit = batteryMonitor.snapshot.chargingLimitPercent {
+                        detailRow("Charge Limit", "\(limit)%")
+                    }
+                    if showTimeRemaining {
+                        detailRow(
+                            batteryMonitor.snapshot.isCharging ? "Time to Full" : "Runtime",
+                            batteryMonitor.displayTimeText ?? "--"
+                        )
+                    }
+                    if showDrainRate {
+                        detailRow(rateTitle, rateValue)
+                    }
+                    if showCapacity {
+                        detailRow("Capacity", batteryMonitor.snapshot.healthText)
+                    }
+                    if showTemperature {
+                        detailRow("Temperature", BatteryDiagnosticsFormatter.temperature(batteryMonitor.snapshot.temperatureCelsius))
+                    }
+                    let needsEstimate = !batteryMonitor.snapshot.isPluggedIn || batteryMonitor.snapshot.isCharging
+                    if showEstimateSource && needsEstimate {
+                        detailRow("Estimate Source", batteryMonitor.estimate.sourceText)
+                    }
+                    if showDrainStatus && needsEstimate && batteryMonitor.estimate.ratePercentPerHour == nil {
+                        detailRow("Drain Status", "Needs samples")
+                    }
                 }
             }
 
-            if let topProcess = batteryMonitor.topProcesses.first {
+            // Top process section
+            if showTopProcess, let topProcess = batteryMonitor.topProcesses.first {
                 Divider()
                 VStack(alignment: .leading, spacing: 6) {
                     detailRow("Highest Impact", topProcess.name)
@@ -60,8 +112,12 @@ struct MenuBarBatteryView: View {
 
             Divider()
 
-            uptimeFooter
+            // Uptime footer
+            if showUptime {
+                uptimeFooter
+            }
 
+            // Action buttons — always visible
             HStack {
                 Button("Open Window") {
                     if let openMainWindow {
@@ -72,22 +128,35 @@ struct MenuBarBatteryView: View {
                     }
                 }
                 .help("Open the BatteryTime window")
-                .buttonStyle(.glass)
+                .glassButtonStyle()
 
                 Spacer()
 
                 Button("Refresh") {
-                    batteryMonitor.refresh()
+                    batteryMonitor.refresh(userInitiated: true)
                 }
                 .keyboardShortcut("r")
                 .help("Refresh battery data")
-                .buttonStyle(.glass)
-
+                .glassButtonStyle()
             }
         }
-        .padding(16)
+        .padding(compact ? 10 : 16)
         .help("\(batteryMonitor.snapshot.stateTitle). \(statusText)")
         .accessibilityElement(children: .contain)
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(key: PopoverHeightKey.self, value: geo.size.height)
+            }
+        )
+        .onPreferenceChange(PopoverHeightKey.self) { height in
+            onHeightChange?(height)
+        }
+        .onAppear {
+            batteryMonitor.beginTopProcessUpdates()
+        }
+        .onDisappear {
+            batteryMonitor.endTopProcessUpdates()
+        }
     }
 
     private var uptimeFooter: some View {
@@ -116,7 +185,7 @@ struct MenuBarBatteryView: View {
     }
 
     private var statusText: String {
-        if let time = batteryMonitor.timeText {
+        if let time = batteryMonitor.displayTimeText {
             return "\(time) \(batteryMonitor.snapshot.timeCaption)"
         }
 
@@ -124,14 +193,8 @@ struct MenuBarBatteryView: View {
     }
 
     private var rateTitle: String {
-        if batteryMonitor.snapshot.isCharging {
-            return "Charge Rate"
-        }
-
-        if batteryMonitor.snapshot.isPluggedIn {
-            return "Power Rate"
-        }
-
+        if batteryMonitor.snapshot.isCharging { return "Charge Rate" }
+        if batteryMonitor.snapshot.isPluggedIn { return "Power Rate" }
         return "Drain Rate"
     }
 
@@ -139,7 +202,6 @@ struct MenuBarBatteryView: View {
         if batteryMonitor.snapshot.isPluggedIn && !batteryMonitor.snapshot.isCharging {
             return "Paused"
         }
-
         return batteryMonitor.drainRateText
     }
 
@@ -155,5 +217,14 @@ struct MenuBarBatteryView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title), \(value)")
+    }
+}
+
+// MARK: - Height preference key
+
+private struct PopoverHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

@@ -6,8 +6,11 @@ struct ProcessSampler {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/top")
         process.arguments = [
             "-o", "power",
-            "-l", "1",
-            "-n", "\(max(limit + 3, 8))",
+            "-l", "2",
+            "-s", "1",
+            // Ask for far more rows than we display: the top power consumers are
+            // mostly daemons (WindowServer etc.) that the appPIDs filter drops.
+            "-n", "\(max(limit * 4, 20))",
             "-stats", "pid,command,power,cpu"
         ]
 
@@ -24,7 +27,7 @@ struct ProcessSampler {
             return []
         }
 
-        guard sema.wait(timeout: .now() + 5) != .timedOut else {
+        guard sema.wait(timeout: .now() + 8) != .timedOut else {
             process.terminate()
             return []
         }

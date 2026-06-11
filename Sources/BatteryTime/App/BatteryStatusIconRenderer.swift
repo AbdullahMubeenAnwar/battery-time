@@ -1,5 +1,6 @@
 import AppKit
 
+@MainActor
 enum BatteryStatusIconRenderer {
     private static let widgetSpacing: CGFloat = 2
     private static let regularBatterySize = CGSize(width: 22, height: 12)
@@ -294,10 +295,10 @@ enum BatteryStatusIconRenderer {
         let rowWidth = max(first.width(using: font), second.width(using: font))
 
         NSAttributedString(string: first, attributes: attributes).draw(
-            with: CGRect(x: x, y: rowHeight + 2, width: rowWidth, height: rowHeight)
+            with: CGRect(x: x, y: rowHeight + 1, width: rowWidth, height: rowHeight)
         )
         NSAttributedString(string: second, attributes: attributes).draw(
-            with: CGRect(x: x, y: 4, width: rowWidth, height: rowHeight)
+            with: CGRect(x: x, y: 5, width: rowWidth, height: rowHeight)
         )
 
         return rowWidth

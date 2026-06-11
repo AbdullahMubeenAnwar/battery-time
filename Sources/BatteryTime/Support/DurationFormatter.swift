@@ -22,9 +22,15 @@ enum DurationFormatter {
         return "\(hours):\(paddedMinutes)"
     }
 
-    static func shortTime(_ date: Date) -> String {
+    @MainActor
+    private static let shortTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    @MainActor
+    static func shortTime(_ date: Date) -> String {
+        shortTimeFormatter.string(from: date)
     }
 }

@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "BatteryTime",
     platforms: [
-        .macOS("26.0")
+        .macOS("13.0")
     ],
     products: [
         .executable(name: "BatteryTime", targets: ["BatteryTime"])

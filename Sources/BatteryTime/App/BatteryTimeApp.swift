@@ -32,17 +32,10 @@ struct BatteryTimeApp: App {
         .commands {
             CommandMenu("Battery") {
                 Button("Refresh") {
-                    appModel.batteryMonitor.refresh()
+                    appModel.batteryMonitor.refresh(userInitiated: true)
                 }
                 .keyboardShortcut("r")
 
-                Button("Toggle Sidebar") {
-                    NotificationCenter.default.post(
-                        name: BatteryTimeAppModel.toggleSidebarNotification,
-                        object: nil
-                    )
-                }
-                .keyboardShortcut("s", modifiers: [.command, .option])
             }
         }
     }

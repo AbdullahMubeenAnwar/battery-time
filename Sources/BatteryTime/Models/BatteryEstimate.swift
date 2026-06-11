@@ -20,12 +20,14 @@ struct BatteryEstimate: Equatable {
     }
 
     var sourceText: String {
-        if systemMinutes != nil {
-            return "macOS estimate"
+        // windowMinutes is set only when the displayed minutes came from the
+        // app's own rolling rate.
+        if let windowMinutes {
+            return "\(windowMinutes)m rolling average"
         }
 
-        if let windowMinutes {
-            return "\(windowMinutes)m rolling fallback"
+        if systemMinutes != nil {
+            return "macOS estimate"
         }
 
         return "Collecting samples"

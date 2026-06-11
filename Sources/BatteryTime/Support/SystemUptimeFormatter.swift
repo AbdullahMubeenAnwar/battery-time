@@ -2,15 +2,20 @@ import Darwin
 import Foundation
 
 enum SystemUptimeFormatter {
-    static func uptimeText(now: Date = Date()) -> String {
-        guard let bootDate = bootDate() else {
-            return "Unknown"
-        }
-
+    @MainActor
+    private static let formatter: DateComponentsFormatter = {
         let formatter = DateComponentsFormatter()
         formatter.maximumUnitCount = 2
         formatter.unitsStyle = .full
         formatter.allowedUnits = [.day, .hour, .minute]
+        return formatter
+    }()
+
+    @MainActor
+    static func uptimeText(now: Date = Date()) -> String {
+        guard let bootDate = bootDate() else {
+            return "Unknown"
+        }
 
         return formatter.string(from: bootDate, to: now) ?? "Unknown"
     }

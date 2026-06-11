@@ -5,7 +5,7 @@ struct BatteryDetailView: View {
 
     var body: some View {
         ScrollView {
-            GlassEffectContainer(spacing: 12) {
+            GlassContainer(spacing: 12) {
                 VStack(alignment: .leading, spacing: 22) {
                     OverviewHeaderView(
                         title: batteryMonitor.snapshot.stateTitle,
@@ -26,7 +26,7 @@ struct BatteryDetailView: View {
 
                         MetricTile(
                             title: batteryMonitor.snapshot.isCharging ? "Time to Full" : "Runtime",
-                            value: batteryMonitor.timeText ?? "--",
+                            value: batteryMonitor.displayTimeText ?? "--",
                             caption: batteryMonitor.estimate.sourceText,
                             systemImage: "clock"
                         )
@@ -56,7 +56,13 @@ struct BatteryDetailView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 22)
         }
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        .scrollEdgeSoftTop()
+        .onAppear {
+            batteryMonitor.beginTopProcessUpdates()
+        }
+        .onDisappear {
+            batteryMonitor.endTopProcessUpdates()
+        }
     }
 
     private var diagnosticGrid: some View {
@@ -85,22 +91,22 @@ struct BatteryDetailView: View {
     }
 
     private var batteryStatusSection: some View {
-        let limitRow: (String, String)? = batteryMonitor.snapshot.chargingLimitPercent.map {
-            ("Charge Limit", "\($0)%")
+        let snap = batteryMonitor.snapshot
+        let onAdapterOnly = snap.isPluggedIn && !snap.isCharging
+        let limitRow: (String, String)? = snap.chargingLimitPercent.map { ("Charge Limit", "\($0)%") }
+        let runtimeValue = onAdapterOnly
+            ? "∞"
+            : BatteryDiagnosticsFormatter.minutes(snap.displayMinutes, calculatingWhenMissing: true)
+        var rows: [(String, String)] = [
+            ("Charge", BatteryDiagnosticsFormatter.percent(snap.percentage)),
+            ("Power Source", snap.powerSource),
+            (snap.isCharging ? "Time to Full" : "Runtime", runtimeValue),
+            ("State", snap.stateTitle)
+        ]
+        if !onAdapterOnly {
+            rows.insert(("Estimate Source", batteryMonitor.estimate.sourceText), at: rows.count - 1)
         }
-        let rows: [(String, String)] = [
-            ("Charge", BatteryDiagnosticsFormatter.percent(batteryMonitor.snapshot.percentage)),
-            ("Power Source", batteryMonitor.snapshot.powerSource),
-            (
-                batteryMonitor.snapshot.isCharging ? "Time to Full" : "Runtime",
-                BatteryDiagnosticsFormatter.minutes(
-                    batteryMonitor.snapshot.displayMinutes,
-                    calculatingWhenMissing: true
-                )
-            ),
-            ("Estimate Source", batteryMonitor.estimate.sourceText),
-            ("State", batteryMonitor.snapshot.stateTitle)
-        ] + (limitRow.map { [$0] } ?? [])
+        rows += limitRow.map { [$0] } ?? []
         return DiagnosticSectionView(title: "Battery Status", rows: rows)
     }
 
@@ -140,7 +146,7 @@ struct BatteryDetailView: View {
     }
 
     private var primaryStatus: String {
-        if let time = batteryMonitor.timeText {
+        if let time = batteryMonitor.displayTimeText {
             return "\(time) \(batteryMonitor.snapshot.timeCaption)"
         }
 

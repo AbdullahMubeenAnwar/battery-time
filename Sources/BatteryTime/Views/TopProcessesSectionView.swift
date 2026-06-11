@@ -15,12 +15,26 @@ struct TopProcessesSectionView: View {
             }
 
             if processes.isEmpty {
-                ContentUnavailableView(
-                    "No Process Data",
-                    systemImage: "list.bullet.rectangle",
-                    description: Text("Refresh to sample current energy impact.")
-                )
-                .frame(minHeight: 120)
+                if #available(macOS 14, *) {
+                    ContentUnavailableView(
+                        "No Process Data",
+                        systemImage: "list.bullet.rectangle",
+                        description: Text("Refresh to sample current energy impact.")
+                    )
+                    .frame(minHeight: 120)
+                } else {
+                    VStack(spacing: 6) {
+                        Image(systemName: "list.bullet.rectangle")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                        Text("No Process Data")
+                            .font(.callout.weight(.semibold))
+                        Text("Refresh to sample current energy impact.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                }
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(processes.enumerated()), id: \.element.id) { index, process in

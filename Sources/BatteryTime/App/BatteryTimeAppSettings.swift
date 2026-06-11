@@ -10,6 +10,24 @@ enum BatteryTimeAppSettings {
     static let chargerStateInsideBatteryKey = "chargerStateInsideBattery"
     static let hideAdditionalWhenFullKey = "hideAdditionalWhenFull"
 
+    // Popover — sections
+    static let popoverShowDetailsKey        = "popoverShowDetails"
+    static let popoverShowTopProcessKey     = "popoverShowTopProcess"
+    static let popoverShowUptimeKey         = "popoverShowUptime"
+
+    // Popover — layout
+    static let popoverCompactKey            = "popoverCompact"
+
+    // Popover — individual detail rows
+    static let popoverShowChargeKey         = "popoverShowCharge"
+    static let popoverShowTimeRemainingKey  = "popoverShowTimeRemaining"
+    static let popoverShowDrainRateKey      = "popoverShowDrainRate"
+    static let popoverShowCapacityKey       = "popoverShowCapacity"
+    static let popoverShowTemperatureKey    = "popoverShowTemperature"
+    static let popoverShowEstimateSourceKey = "popoverShowEstimateSource"
+    static let popoverShowChargeLimitKey    = "popoverShowChargeLimit"
+    static let popoverShowDrainStatusKey    = "popoverShowDrainStatus"
+
     static let defaultShowDockIcon = false
     static let defaultMenuBarDisplayFormat = DisplayFormat.iconOnly
     static let defaultColorizeBattery = true
@@ -17,6 +35,20 @@ enum BatteryTimeAppSettings {
     static let defaultChargerStateInsideBattery = true
     static let defaultHideAdditionalWhenFull = true
     static let defaultLaunchAtLoginEnabled = true
+
+    // Popover defaults
+    static let defaultPopoverShowDetails        = true
+    static let defaultPopoverShowTopProcess     = true
+    static let defaultPopoverShowUptime         = true
+    static let defaultPopoverCompact            = false
+    static let defaultPopoverShowCharge         = true
+    static let defaultPopoverShowTimeRemaining  = true
+    static let defaultPopoverShowDrainRate      = true
+    static let defaultPopoverShowCapacity       = true
+    static let defaultPopoverShowTemperature    = true
+    static let defaultPopoverShowEstimateSource = false
+    static let defaultPopoverShowChargeLimit    = true
+    static let defaultPopoverShowDrainStatus    = true
 
     private static let launchAtLoginInitializedKey = "launchAtLoginInitialized"
 
@@ -27,7 +59,20 @@ enum BatteryTimeAppSettings {
             colorizeBatteryKey: defaultColorizeBattery,
             xlBatterySizeKey: defaultXLBatterySize,
             chargerStateInsideBatteryKey: defaultChargerStateInsideBattery,
-            hideAdditionalWhenFullKey: defaultHideAdditionalWhenFull
+            hideAdditionalWhenFullKey: defaultHideAdditionalWhenFull,
+            // Popover
+            popoverShowDetailsKey: defaultPopoverShowDetails,
+            popoverShowTopProcessKey: defaultPopoverShowTopProcess,
+            popoverShowUptimeKey: defaultPopoverShowUptime,
+            popoverCompactKey: defaultPopoverCompact,
+            popoverShowChargeKey: defaultPopoverShowCharge,
+            popoverShowTimeRemainingKey: defaultPopoverShowTimeRemaining,
+            popoverShowDrainRateKey: defaultPopoverShowDrainRate,
+            popoverShowCapacityKey: defaultPopoverShowCapacity,
+            popoverShowTemperatureKey: defaultPopoverShowTemperature,
+            popoverShowEstimateSourceKey: defaultPopoverShowEstimateSource,
+            popoverShowChargeLimitKey: defaultPopoverShowChargeLimit,
+            popoverShowDrainStatusKey: defaultPopoverShowDrainStatus
         ])
 
         guard UserDefaults.standard.object(forKey: launchAtLoginInitializedKey) == nil else {

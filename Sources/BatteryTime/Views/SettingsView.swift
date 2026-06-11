@@ -17,73 +17,170 @@ struct SettingsView: View {
     @State private var launchAtLogin = BatteryTimeAppSettings.launchAtLoginEnabled
     @State private var launchAtLoginError: String?
 
+    // Popover
+    @AppStorage(BatteryTimeAppSettings.popoverShowDetailsKey)
+    private var popoverShowDetails = BatteryTimeAppSettings.defaultPopoverShowDetails
+    @AppStorage(BatteryTimeAppSettings.popoverShowTopProcessKey)
+    private var popoverShowTopProcess = BatteryTimeAppSettings.defaultPopoverShowTopProcess
+    @AppStorage(BatteryTimeAppSettings.popoverShowUptimeKey)
+    private var popoverShowUptime = BatteryTimeAppSettings.defaultPopoverShowUptime
+    @AppStorage(BatteryTimeAppSettings.popoverCompactKey)
+    private var popoverCompact = BatteryTimeAppSettings.defaultPopoverCompact
+    @AppStorage(BatteryTimeAppSettings.popoverShowChargeKey)
+    private var popoverShowCharge = BatteryTimeAppSettings.defaultPopoverShowCharge
+    @AppStorage(BatteryTimeAppSettings.popoverShowTimeRemainingKey)
+    private var popoverShowTimeRemaining = BatteryTimeAppSettings.defaultPopoverShowTimeRemaining
+    @AppStorage(BatteryTimeAppSettings.popoverShowDrainRateKey)
+    private var popoverShowDrainRate = BatteryTimeAppSettings.defaultPopoverShowDrainRate
+    @AppStorage(BatteryTimeAppSettings.popoverShowCapacityKey)
+    private var popoverShowCapacity = BatteryTimeAppSettings.defaultPopoverShowCapacity
+    @AppStorage(BatteryTimeAppSettings.popoverShowTemperatureKey)
+    private var popoverShowTemperature = BatteryTimeAppSettings.defaultPopoverShowTemperature
+    @AppStorage(BatteryTimeAppSettings.popoverShowEstimateSourceKey)
+    private var popoverShowEstimateSource = BatteryTimeAppSettings.defaultPopoverShowEstimateSource
+    @AppStorage(BatteryTimeAppSettings.popoverShowChargeLimitKey)
+    private var popoverShowChargeLimit = BatteryTimeAppSettings.defaultPopoverShowChargeLimit
+    @AppStorage(BatteryTimeAppSettings.popoverShowDrainStatusKey)
+    private var popoverShowDrainStatus = BatteryTimeAppSettings.defaultPopoverShowDrainStatus
+
     var body: some View {
-        VStack(spacing: 10) {
-            BatterySettingsHeader(
-                snapshot: batteryMonitor.snapshot,
-                title: previewTitle,
-                showsInnerPercentage: showsInnerPercentage,
-                colorize: colorizeBattery,
-                xlSize: xlBatterySize,
-                chargerInside: chargerStateInsideBattery
-            )
-
-            // Container matches Stats' PreferencesSection:
-            // background = quaternaryLabelColor @ 0.025 alpha, radius 10,
-            // edge insets top/bottom 8, left/right 10, spacing 8 between items.
-            VStack(spacing: 8) {
-                BatterySettingsToggleRow(
-                    title: "Start at login",
-                    caption: launchAtLoginCaption,
-                    isOn: launchAtLoginBinding
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 10) {
+                BatterySettingsHeader(
+                    snapshot: batteryMonitor.snapshot,
+                    title: previewTitle,
+                    showsInnerPercentage: showsInnerPercentage,
+                    colorize: colorizeBattery,
+                    xlSize: xlBatterySize,
+                    chargerInside: chargerStateInsideBattery
                 )
 
-                StatsSeparator()
+                // Widget section
+                // Container matches Stats' PreferencesSection:
+                // background = quaternaryLabelColor @ 0.025 alpha, radius 10,
+                // edge insets top/bottom 8, left/right 10, spacing 8 between items.
+                VStack(spacing: 8) {
+                    BatterySettingsToggleRow(
+                        title: "Start at login",
+                        caption: launchAtLoginCaption,
+                        isOn: launchAtLoginBinding
+                    )
 
-                BatterySettingsPickerRow(
-                    title: "Additional information",
-                    selection: additionalInformationBinding
-                )
+                    StatsSeparator()
 
-                StatsSeparator()
+                    BatterySettingsPickerRow(
+                        title: "Additional information",
+                        selection: additionalInformationBinding
+                    )
 
-                BatterySettingsToggleRow(
-                    title: "Hide additional information when full",
-                    isOn: $hideAdditionalWhenFull
-                )
+                    StatsSeparator()
 
-                StatsSeparator()
+                    BatterySettingsToggleRow(
+                        title: "Hide additional information when full",
+                        isOn: $hideAdditionalWhenFull
+                    )
 
-                BatterySettingsToggleRow(
-                    title: "Colourise",
-                    isOn: $colorizeBattery
-                )
+                    StatsSeparator()
 
-                StatsSeparator()
+                    BatterySettingsToggleRow(
+                        title: "Colourise",
+                        isOn: $colorizeBattery
+                    )
 
-                BatterySettingsToggleRow(
-                    title: "XL size",
-                    isOn: $xlBatterySize
-                )
+                    StatsSeparator()
 
-                StatsSeparator()
+                    BatterySettingsToggleRow(
+                        title: "XL size",
+                        isOn: $xlBatterySize
+                    )
 
-                BatterySettingsToggleRow(
-                    title: "Charger state inside the battery",
-                    isOn: $chargerStateInsideBattery
-                )
+                    StatsSeparator()
+
+                    BatterySettingsToggleRow(
+                        title: "Charger state inside the battery",
+                        isOn: $chargerStateInsideBattery
+                    )
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(NSColor.quaternaryLabelColor.withAlphaComponent(0.025)))
+                }
+
+                // Popover section header
+                HStack {
+                    Text("Popover")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 2)
+                    Spacer()
+                }
+                .padding(.top, 4)
+
+                // Popover section container
+                VStack(spacing: 8) {
+                    BatterySettingsToggleRow(
+                        title: "Compact mode",
+                        isOn: $popoverCompact
+                    )
+
+                    StatsSeparator()
+
+                    BatterySettingsToggleRow(
+                        title: "Show details",
+                        isOn: $popoverShowDetails
+                    )
+
+                    // Indented sub-rows (dimmed when details section is off)
+                    VStack(spacing: 8) {
+                        BatterySettingsToggleRow(title: "Charge", isOn: $popoverShowCharge)
+                        StatsSeparator()
+                        BatterySettingsToggleRow(title: "Time remaining", isOn: $popoverShowTimeRemaining)
+                        StatsSeparator()
+                        BatterySettingsToggleRow(title: "Drain rate", isOn: $popoverShowDrainRate)
+                        StatsSeparator()
+                        BatterySettingsToggleRow(title: "Capacity", isOn: $popoverShowCapacity)
+                        StatsSeparator()
+                        BatterySettingsToggleRow(title: "Temperature", isOn: $popoverShowTemperature)
+                        StatsSeparator()
+                        BatterySettingsToggleRow(title: "Estimate source", isOn: $popoverShowEstimateSource)
+                        StatsSeparator()
+                        BatterySettingsToggleRow(title: "Charge limit", isOn: $popoverShowChargeLimit)
+                        StatsSeparator()
+                        BatterySettingsToggleRow(title: "Drain status", isOn: $popoverShowDrainStatus)
+                    }
+                    .padding(.leading, 16)
+                    .opacity(popoverShowDetails ? 1 : 0.4)
+                    .disabled(!popoverShowDetails)
+                    .animation(.easeInOut(duration: 0.15), value: popoverShowDetails)
+
+                    StatsSeparator()
+
+                    BatterySettingsToggleRow(
+                        title: "Show top process",
+                        isOn: $popoverShowTopProcess
+                    )
+
+                    StatsSeparator()
+
+                    BatterySettingsToggleRow(
+                        title: "Show uptime",
+                        isOn: $popoverShowUptime
+                    )
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(NSColor.quaternaryLabelColor.withAlphaComponent(0.025)))
+                }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(NSColor.quaternaryLabelColor.withAlphaComponent(0.025)))
-            }
+            .padding(.top, 14)
+            .padding(.bottom, 20)
         }
-        .padding(.horizontal, 10)
-        .padding(.top, 14)
-        .padding(.bottom, 20)
-        .frame(width: 540, height: 360)
+        .frame(width: 540, height: 600)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             launchAtLogin = BatteryTimeAppSettings.launchAtLoginEnabled
@@ -296,6 +393,7 @@ private struct AdditionalInformationPopUp: NSViewRepresentable {
         [.iconOnly, nil, .innerPercentage, nil, .percentOnly, .timeOnly, .percentAndTime, .timeAndPercent]
     }
 
+    @MainActor
     final class Coordinator: NSObject {
         var parent: AdditionalInformationPopUp
         init(parent: AdditionalInformationPopUp) { self.parent = parent }

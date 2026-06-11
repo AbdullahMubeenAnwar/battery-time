@@ -61,12 +61,27 @@ struct BatteryEstimator {
 
         let confidence = confidence(for: rates)
 
+        // Discharging: the app's own rolling rate is the product's primary
+        // estimate; the system value is the fallback (per README). Charging
+        // stays system-primary — the rolling rate can't see charge taper or a
+        // user-set charge limit, so the system's time-to-full is strictly better.
+        let minutes: Int?
+        let usedWindowMinutes: Int?
+        switch mode {
+        case .charging:
+            minutes = systemMinutes ?? customMinutes
+            usedWindowMinutes = systemMinutes == nil ? preferredRate.windowMinutes : nil
+        default:
+            minutes = customMinutes ?? systemMinutes
+            usedWindowMinutes = customMinutes == nil ? nil : preferredRate.windowMinutes
+        }
+
         return BatteryEstimate(
-            minutes: systemMinutes ?? customMinutes,
+            minutes: minutes,
             systemMinutes: systemMinutes,
             ratePercentPerHour: preferredRate.percentPerHour,
             confidence: confidence,
-            windowMinutes: preferredRate.windowMinutes
+            windowMinutes: usedWindowMinutes
         )
     }
 

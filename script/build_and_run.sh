@@ -4,7 +4,7 @@ set -euo pipefail
 MODE="${1:-run}"
 APP_NAME="BatteryTime"
 BUNDLE_ID="com.abdullah.batterytime"
-MIN_SYSTEM_VERSION="26.0"
+MIN_SYSTEM_VERSION="13.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -51,7 +51,7 @@ build_app() {
 
   xcrun swiftc \
 	    -swift-version 5 \
-	    -target "$(uname -m)-apple-macosx26.0" \
+	    -target "$(uname -m)-apple-macosx13.0" \
 	    -framework SwiftUI \
 	    -framework Charts \
 	    -framework AppKit \
@@ -68,6 +68,14 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+
+# Copy app icon if present
+APP_RESOURCES="$APP_CONTENTS/Resources"
+ICON_SRC="$ROOT_DIR/Assets/AppIcon.icns"
+if [[ -f "$ICON_SRC" ]]; then
+  mkdir -p "$APP_RESOURCES"
+  cp "$ICON_SRC" "$APP_RESOURCES/AppIcon.icns"
+fi
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -90,6 +98,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$MIN_SYSTEM_VERSION</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
 </dict>
 </plist>
 PLIST

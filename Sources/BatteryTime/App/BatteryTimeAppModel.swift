@@ -1,15 +1,17 @@
 import AppKit
 import Foundation
 
+@MainActor
 final class BatteryTimeAppModel: ObservableObject {
     static let showMainWindowNotification = Notification.Name("BatteryTimeShowMainWindow")
-    static let toggleSidebarNotification = Notification.Name("BatteryTimeToggleSidebar")
 
     let batteryMonitor: BatteryMonitor
     private let mainWindowController: MainWindowController
     private let statusItemController: BatteryStatusItemController
-    private var launchObserver: NSObjectProtocol?
-    private var showWindowObserver: NSObjectProtocol?
+    // Touched only on the main thread (init and deinit); marked unsafe so the
+    // nonisolated deinit can remove them.
+    private nonisolated(unsafe) var launchObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var showWindowObserver: NSObjectProtocol?
 
     init() {
         let batteryMonitor = BatteryMonitor()
@@ -30,7 +32,9 @@ final class BatteryTimeAppModel: ObservableObject {
             queue: .main
         ) { _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                mainWindowController.show()
+                MainActor.assumeIsolated {
+                    mainWindowController.show()
+                }
             }
         }
 
@@ -39,7 +43,10 @@ final class BatteryTimeAppModel: ObservableObject {
             object: nil,
             queue: .main
         ) { _ in
-            mainWindowController.show()
+            // Delivered on the main queue per the observer's queue parameter.
+            MainActor.assumeIsolated {
+                mainWindowController.show()
+            }
         }
     }
 

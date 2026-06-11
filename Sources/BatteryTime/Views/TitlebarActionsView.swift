@@ -1,22 +1,10 @@
 import SwiftUI
 
 struct TitlebarActionsView: View {
-    @Environment(\.openSettings) private var openSettings
-
-    let isSidebarVisible: Bool
-    let toggleSidebar: () -> Void
     let refresh: () -> Void
 
     var body: some View {
         HStack(spacing: 3) {
-            TitlebarToolbarButton(
-                title: isSidebarVisible ? "Hide sidebar" : "Show sidebar",
-                systemImage: "sidebar.leading",
-                action: toggleSidebar
-            )
-
-            TitlebarActionDivider()
-
             TitlebarToolbarButton(
                 title: "Refresh battery data",
                 systemImage: "arrow.clockwise",
@@ -27,7 +15,17 @@ struct TitlebarActionsView: View {
                 title: "Open Battery Time settings",
                 systemImage: "gearshape",
                 action: {
-                    openSettings()
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                }
+            )
+
+            TitlebarActionDivider()
+
+            TitlebarToolbarButton(
+                title: "Quit Battery Time",
+                systemImage: "power",
+                action: {
+                    NSApp.terminate(nil)
                 }
             )
         }

@@ -4,3 +4,6 @@ dist/
 release/
 .DS_Store
 *.dmg
+Assets/*.iconset
+CLAUDE.md
+REVIEW_NOTES.md

@@ -2,10 +2,7 @@ import Foundation
 import IOKit
 import IOKit.ps
 
-final class PowerSourceClient {
-    private var cachedProfiledHealth: ProfiledBatteryHealth?
-    private var cachedProfiledHealthDate: Date?
-
+struct PowerSourceClient {
     func snapshot() -> BatterySnapshot {
         guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
               let sources = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [AnyObject],
@@ -167,13 +164,8 @@ final class PowerSourceClient {
         return dictionary as? [String: Any]
     }
 
+    // Throttling and caching live in BatteryMonitor; this always performs the fetch.
     private func profiledBatteryHealth() -> ProfiledBatteryHealth? {
-        if let cachedProfiledHealth,
-           let cachedProfiledHealthDate,
-           Date().timeIntervalSince(cachedProfiledHealthDate) < 600 {
-            return cachedProfiledHealth
-        }
-
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/system_profiler")
         process.arguments = ["SPPowerDataType", "-json"]
@@ -188,25 +180,20 @@ final class PowerSourceClient {
         do {
             try process.run()
         } catch {
-            return cachedProfiledHealth
+            return nil
         }
 
         guard sema.wait(timeout: .now() + 8) != .timedOut else {
             process.terminate()
-            cachedProfiledHealthDate = Date()
-            return cachedProfiledHealth
+            return nil
         }
 
         guard process.terminationStatus == 0 else {
-            return cachedProfiledHealth
+            return nil
         }
 
         let data = output.fileHandleForReading.readDataToEndOfFile()
-        let parsedHealth = parseProfiledBatteryHealth(data: data)
-        cachedProfiledHealth = parsedHealth ?? cachedProfiledHealth
-        cachedProfiledHealthDate = Date()
-
-        return parsedHealth ?? cachedProfiledHealth
+        return parseProfiledBatteryHealth(data: data)
     }
 
     private func parseProfiledBatteryHealth(data: Data) -> ProfiledBatteryHealth? {

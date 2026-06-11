@@ -1,88 +1,104 @@
 import AppKit
 import Foundation
 import IOKit.ps
+import os
 
+@MainActor
 final class BatteryMonitor: ObservableObject {
     @Published private(set) var snapshot: BatterySnapshot
     @Published private(set) var estimate: BatteryEstimate
-    @Published private(set) var samples: [BatterySample] = []
     @Published private(set) var topProcesses: [ProcessSample] = []
-    @Published private(set) var usageReport: BatteryUsageReport
+
+    private static let log = Logger(subsystem: "com.abdullah.batterytime", category: "monitor")
 
     private let client: PowerSourceClient
     private let estimator: BatteryEstimator
     private let processSampler: ProcessSampler
-    private let historyStore: BatteryHistoryStore
-    private let powerlogBackfillClient: PowerlogBackfillClient
-    private let usageAnalyzer: BatteryUsageAnalyzer
-    private let screenActivityMonitor: ScreenActivityMonitor
-    private var timer: Timer?
-    private var powerSourceRunLoopSource: CFRunLoopSource?
-    private var usageRange = BatteryUsageRange.day
-    private var lastPowerlogBackfillDate: Date?
-    private var lastPowerlogBackfillWasAvailable = false
-    private var lastPowerlogFallbackReason = "macOS power history has not been imported yet."
-    private var isPowerlogBackfillRunning = false
+    private var samples: [BatterySample] = []
+
+    // Touched only from the main thread (init/deinit and main-actor methods);
+    // marked unsafe so the nonisolated deinit can clean them up.
+    private nonisolated(unsafe) var timer: Timer?
+    private nonisolated(unsafe) var powerSourceRunLoopSource: CFRunLoopSource?
+
+    private var pendingRefresh: Task<Void, Never>?
+    private var lastRefreshDate = Date.distantPast
+
+    private var cachedHealth: ProfiledBatteryHealth?
+    private var lastHealthFetch: Date?
+    private var isHealthFetchInFlight = false
+
+    private var cachedChargingLimit: Int?
+    private var isChargingLimitFetchInFlight = false
+
+    private var lastTopProcessSample: Date?
+    private var isTopProcessSampleInFlight = false
+    private var topProcessInterest = 0
+
+    /// How stale top-process data may get before a refresh re-samples.
+    private static let visibleTopProcessMaxAge: TimeInterval = 45
+    private static let hiddenTopProcessMaxAge: TimeInterval = 300
+    private static let healthRefetchInterval: TimeInterval = 600
 
     init(
         client: PowerSourceClient = PowerSourceClient(),
         estimator: BatteryEstimator = BatteryEstimator(),
-        processSampler: ProcessSampler = ProcessSampler(),
-        historyStore: BatteryHistoryStore = BatteryHistoryStore(),
-        powerlogBackfillClient: PowerlogBackfillClient = PowerlogBackfillClient(),
-        usageAnalyzer: BatteryUsageAnalyzer = BatteryUsageAnalyzer()
+        processSampler: ProcessSampler = ProcessSampler()
     ) {
         self.client = client
         self.estimator = estimator
         self.processSampler = processSampler
-        self.historyStore = historyStore
-        self.powerlogBackfillClient = powerlogBackfillClient
-        self.usageAnalyzer = usageAnalyzer
         let initialSnapshot = client.snapshot()
-        self.screenActivityMonitor = ScreenActivityMonitor(startDate: initialSnapshot.collectedAt)
         self.snapshot = initialSnapshot
         self.estimate = estimator.estimate(snapshot: initialSnapshot, samples: [])
-        self.topProcesses = []
-        self.usageReport = BatteryUsageReport.empty(range: usageRange, now: initialSnapshot.collectedAt)
-        recordSample(from: snapshot)
-        recalculateEstimate()
-        refreshUsageReport()
-        refreshCalibratedHealth()
-        refreshChargingLimit()
-        refreshTopProcesses()
-        refreshPowerlogBackfillIfNeeded(force: true)
+
         startPowerSourceNotifications()
 
         let t = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
-            self?.refresh()
+            // Scheduled on the main run loop, so the timer always fires on the main thread.
+            MainActor.assumeIsolated {
+                self?.refresh()
+            }
         }
+        t.tolerance = 10
         RunLoop.main.add(t, forMode: .common)
         timer = t
+
+        refresh()
     }
 
     deinit {
-        stopPowerSourceNotifications()
+        // BatteryMonitor lives for the process lifetime (owned by the app model's
+        // StateObject), so this runs — if ever — on the main thread during teardown,
+        // which Timer.invalidate and run-loop source removal require.
+        if let source = powerSourceRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
         timer?.invalidate()
     }
 
-    func refresh() {
-        snapshot = client.snapshot()
-        recordSample(from: snapshot)
+    func refresh(userInitiated: Bool = false) {
+        lastRefreshDate = Date()
+        var newSnapshot = client.snapshot()
+        merge(into: &newSnapshot)
+        snapshot = newSnapshot
+        recordSample(from: newSnapshot)
         recalculateEstimate()
         refreshCalibratedHealth()
         refreshChargingLimit()
-        refreshTopProcesses()
-        refreshPowerlogBackfillIfNeeded()
-        refreshUsageReport()
+        refreshTopProcesses(maxAge: topProcessMaxAge(userInitiated: userInitiated))
+        Self.log.debug("refresh: pct=\(newSnapshot.percentage ?? -1) charging=\(newSnapshot.isCharging) pluggedIn=\(newSnapshot.isPluggedIn) samples=\(self.samples.count)")
     }
 
-    func setUsageRange(_ range: BatteryUsageRange) {
-        guard usageRange != range else {
-            return
-        }
+    /// Views that display top-process data call this when they appear so sampling
+    /// runs at full cadence only while something is showing the result.
+    func beginTopProcessUpdates() {
+        topProcessInterest += 1
+        refreshTopProcesses(maxAge: Self.visibleTopProcessMaxAge)
+    }
 
-        usageRange = range
-        refreshUsageReport()
+    func endTopProcessUpdates() {
+        topProcessInterest = max(0, topProcessInterest - 1)
     }
 
     func menuBarTitle(format: DisplayFormat, hideWhenFull: Bool = false) -> String {
@@ -90,17 +106,19 @@ final class BatteryMonitor: ObservableObject {
             return ""
         }
 
+        let timeDisplay = menuBarDisplayTimeText
+
         switch format {
         case .iconOnly, .innerPercentage:
             return ""
         case .percentOnly:
             return percentageText ?? "n/a"
         case .timeOnly:
-            return menuBarTimeText ?? "--"
+            return timeDisplay
         case .percentAndTime:
-            return "\(percentageText ?? "n/a")\n\(menuBarTimeText ?? "--")"
+            return "\(percentageText ?? "n/a")\n\(timeDisplay)"
         case .timeAndPercent:
-            return "\(menuBarTimeText ?? "--")\n\(percentageText ?? "n/a")"
+            return "\(timeDisplay)\n\(percentageText ?? "n/a")"
         }
     }
 
@@ -112,22 +130,38 @@ final class BatteryMonitor: ObservableObject {
         estimate.timeText
     }
 
+    var displayTimeText: String? {
+        snapshot.isPluggedIn && !snapshot.isCharging ? "∞" : timeText
+    }
+
     private var menuBarTimeText: String? {
         estimate.minutes.map { DurationFormatter.compactBatteryTime(minutes: $0) }
+    }
+
+    private var menuBarDisplayTimeText: String {
+        if snapshot.isPluggedIn && !snapshot.isCharging { return "∞" }
+        return menuBarTimeText ?? "--"
     }
 
     var drainRateText: String {
         estimate.rateText
     }
 
-    private func recordSample(from snapshot: BatterySnapshot) {
-        historyStore.saveSnapshot(snapshot)
+    // MARK: - Sampling
 
-        if let screenSample = screenActivityMonitor.recordTick(at: snapshot.collectedAt) {
-            historyStore.saveScreenActivity(screenSample)
+    private func recordSample(from snapshot: BatterySnapshot) {
+        guard let percentage = snapshot.percentage else {
+            return
         }
 
-        guard let percentage = snapshot.percentage else {
+        // Notification bursts can fire several refreshes per second; don't let
+        // identical samples flood the 120-entry buffer and starve the rolling
+        // windows. State transitions are always recorded.
+        if let last = samples.last,
+           last.percentage == percentage,
+           last.isPluggedIn == snapshot.isPluggedIn,
+           last.isCharging == snapshot.isCharging,
+           snapshot.collectedAt.timeIntervalSince(last.date) < 30 {
             return
         }
 
@@ -147,91 +181,10 @@ final class BatteryMonitor: ObservableObject {
 
     private func recalculateEstimate() {
         estimate = estimator.estimate(snapshot: snapshot, samples: samples)
+        Self.log.debug("estimate: minutes=\(self.estimate.minutes ?? -1) rate=\(self.estimate.ratePercentPerHour ?? 0, format: .fixed(precision: 2)) window=\(self.estimate.windowMinutes ?? 0) confidence=\(self.estimate.confidence.rawValue)")
     }
 
-    private func refreshUsageReport() {
-        let now = Date()
-        let startDate = usageRange.startDate(now: now)
-        var batteryPoints = historyStore.batteryPoints(since: startDate)
-
-        if batteryPoints.isEmpty {
-            batteryPoints = samples
-                .filter { $0.date >= startDate }
-                .map {
-                    BatteryHistoryPoint(
-                        date: $0.date,
-                        percentage: $0.percentage,
-                        isPluggedIn: $0.isPluggedIn,
-                        isCharging: $0.isCharging,
-                        source: .app
-                    )
-                }
-        }
-
-        usageReport = usageAnalyzer.report(
-            range: usageRange,
-            snapshot: snapshot,
-            estimate: estimate,
-            topProcesses: topProcesses,
-            batteryPoints: batteryPoints,
-            screenBuckets: historyStore.screenBuckets(since: startDate),
-            dataSourceStatus: dataSourceStatus(since: startDate),
-            now: now
-        )
-    }
-
-    private func dataSourceStatus(since startDate: Date) -> HistoryDataSourceStatus {
-        let counts = historyStore.counts(since: startDate)
-
-        if counts.powerlogBatteryPoints > 0 || counts.powerlogScreenBuckets > 0 {
-            return .hybrid(
-                batteryPoints: counts.powerlogBatteryPoints,
-                screenBuckets: counts.powerlogScreenBuckets
-            )
-        }
-
-        let reason = lastPowerlogBackfillWasAvailable
-            ? "macOS power history has no rows for this range."
-            : lastPowerlogFallbackReason
-        return .appOnly(reason: reason, appBatteryPoints: counts.appBatteryPoints)
-    }
-
-    private func refreshPowerlogBackfillIfNeeded(force: Bool = false) {
-        guard !isPowerlogBackfillRunning else {
-            return
-        }
-
-        let now = Date()
-        if !force,
-           let lastPowerlogBackfillDate,
-           now.timeIntervalSince(lastPowerlogBackfillDate) < 60 * 60 {
-            return
-        }
-
-        isPowerlogBackfillRunning = true
-        let client = powerlogBackfillClient
-        let store = historyStore
-        let startDate = BatteryUsageRange.month.startDate(now: now)
-
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            let result = client.backfill(since: startDate)
-            if result.isAvailable {
-                store.saveBackfill(result.backfill, now: now)
-            }
-
-            DispatchQueue.main.async {
-                guard let self else {
-                    return
-                }
-
-                self.lastPowerlogBackfillDate = Date()
-                self.lastPowerlogBackfillWasAvailable = result.isAvailable
-                self.lastPowerlogFallbackReason = result.reason ?? "macOS power history has no rows for this range."
-                self.isPowerlogBackfillRunning = false
-                self.refreshUsageReport()
-            }
-        }
-    }
+    // MARK: - Power source notifications
 
     private func startPowerSourceNotifications() {
         guard powerSourceRunLoopSource == nil,
@@ -244,8 +197,10 @@ final class BatteryMonitor: ObservableObject {
                       .fromOpaque(context)
                       .takeUnretainedValue()
 
-                  DispatchQueue.main.async {
-                      monitor.refresh()
+                  // IOPS callbacks fire on the run loop the source is installed
+                  // on — the main run loop.
+                  MainActor.assumeIsolated {
+                      monitor.powerSourceDidChange()
                   }
               }, UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()))?.takeRetainedValue() else {
             return
@@ -255,66 +210,141 @@ final class BatteryMonitor: ObservableObject {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
     }
 
-    private func stopPowerSourceNotifications() {
-        guard let source = powerSourceRunLoopSource else {
+    /// Plug/unplug events deliver several notifications back to back. Refresh
+    /// immediately on the first one, then coalesce the rest into a single
+    /// trailing refresh one second later.
+    private func powerSourceDidChange() {
+        guard pendingRefresh == nil else {
             return
         }
 
-        CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        powerSourceRunLoopSource = nil
+        if Date().timeIntervalSince(lastRefreshDate) > 1 {
+            Self.log.debug("power source changed: refreshing now")
+            refresh()
+            return
+        }
+
+        Self.log.debug("power source changed: coalescing")
+        pendingRefresh = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, !Task.isCancelled else {
+                return
+            }
+
+            self.pendingRefresh = nil
+            self.refresh()
+        }
     }
 
-    private func refreshTopProcesses() {
+    // MARK: - Background reads
+
+    /// Re-applies the slow background-fetched values onto a freshly built snapshot.
+    private func merge(into snapshot: inout BatterySnapshot) {
+        if let cachedHealth {
+            snapshot.healthPercent = cachedHealth.maximumCapacityPercent ?? snapshot.healthPercent
+            snapshot.healthCondition = cachedHealth.condition ?? snapshot.healthCondition
+            snapshot.cycleCount = cachedHealth.cycleCount ?? snapshot.cycleCount
+        }
+
+        snapshot.chargingLimitPercent = cachedChargingLimit
+    }
+
+    private func refreshCalibratedHealth() {
+        if let lastHealthFetch, Date().timeIntervalSince(lastHealthFetch) < Self.healthRefetchInterval {
+            return
+        }
+
+        guard !isHealthFetchInFlight else {
+            return
+        }
+
+        isHealthFetchInFlight = true
+        let client = client
+
+        Task.detached(priority: .utility) { [weak self] in
+            let health = client.calibratedHealth()
+            await self?.healthFetchCompleted(health)
+        }
+    }
+
+    private func healthFetchCompleted(_ health: ProfiledBatteryHealth?) {
+        isHealthFetchInFlight = false
+        lastHealthFetch = Date()
+
+        guard let health else {
+            Self.log.info("calibrated health fetch failed; keeping previous values")
+            return
+        }
+
+        cachedHealth = health
+        var updatedSnapshot = snapshot
+        merge(into: &updatedSnapshot)
+        snapshot = updatedSnapshot
+        Self.log.info("calibrated health: capacity=\(health.maximumCapacityPercent ?? -1)% cycles=\(health.cycleCount ?? -1)")
+    }
+
+    private func refreshChargingLimit() {
+        guard !isChargingLimitFetchInFlight else {
+            return
+        }
+
+        isChargingLimitFetchInFlight = true
+        let client = client
+
+        Task.detached(priority: .utility) { [weak self] in
+            let limit = client.chargingLimitPercent()
+            await self?.chargingLimitFetchCompleted(limit)
+        }
+    }
+
+    private func chargingLimitFetchCompleted(_ limit: Int?) {
+        isChargingLimitFetchInFlight = false
+
+        guard limit != cachedChargingLimit else {
+            return
+        }
+
+        cachedChargingLimit = limit
+        var updatedSnapshot = snapshot
+        merge(into: &updatedSnapshot)
+        snapshot = updatedSnapshot
+    }
+
+    private func topProcessMaxAge(userInitiated: Bool) -> TimeInterval {
+        if userInitiated {
+            return 5
+        }
+
+        return topProcessInterest > 0 ? Self.visibleTopProcessMaxAge : Self.hiddenTopProcessMaxAge
+    }
+
+    private func refreshTopProcesses(maxAge: TimeInterval) {
+        guard !isTopProcessSampleInFlight else {
+            return
+        }
+
+        if let lastTopProcessSample, Date().timeIntervalSince(lastTopProcessSample) < maxAge {
+            return
+        }
+
+        isTopProcessSampleInFlight = true
         let sampler = processSampler
         let appPIDs = Set(NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular || $0.activationPolicy == .accessory }
             .map { Int($0.processIdentifier) })
 
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            let samples = sampler.topProcesses(appPIDs: appPIDs)
-
-            DispatchQueue.main.async {
-                self?.topProcesses = samples
-                self?.refreshUsageReport()
-            }
+        Task.detached(priority: .utility) { [weak self] in
+            let started = Date()
+            let processes = sampler.topProcesses(appPIDs: appPIDs)
+            let duration = Date().timeIntervalSince(started)
+            await self?.topProcessSampleCompleted(processes, duration: duration)
         }
     }
 
-    private func refreshCalibratedHealth() {
-        let client = client
-
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let health = client.calibratedHealth() else {
-                return
-            }
-
-            DispatchQueue.main.async {
-                guard let self else {
-                    return
-                }
-
-                var updatedSnapshot = self.snapshot
-                updatedSnapshot.healthPercent = health.maximumCapacityPercent ?? updatedSnapshot.healthPercent
-                updatedSnapshot.healthCondition = health.condition ?? updatedSnapshot.healthCondition
-                updatedSnapshot.cycleCount = health.cycleCount ?? updatedSnapshot.cycleCount
-                self.snapshot = updatedSnapshot
-                self.refreshUsageReport()
-            }
-        }
-    }
-
-    private func refreshChargingLimit() {
-        let client = client
-
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            let limit = client.chargingLimitPercent()
-
-            DispatchQueue.main.async {
-                guard let self else { return }
-                var updatedSnapshot = self.snapshot
-                updatedSnapshot.chargingLimitPercent = limit
-                self.snapshot = updatedSnapshot
-            }
-        }
+    private func topProcessSampleCompleted(_ processes: [ProcessSample], duration: TimeInterval) {
+        isTopProcessSampleInFlight = false
+        lastTopProcessSample = Date()
+        topProcesses = processes
+        Self.log.debug("top processes: \(processes.count) rows in \(duration, format: .fixed(precision: 2))s")
     }
 }

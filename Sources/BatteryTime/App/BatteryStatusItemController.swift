@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 
+@MainActor
 final class BatteryStatusItemController: NSObject {
     private let batteryMonitor: BatteryMonitor
     private let openMainWindow: () -> Void
@@ -38,30 +39,47 @@ final class BatteryStatusItemController: NSObject {
 
     private func configurePopover() {
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 300, height: 412)
+        popover.contentSize = NSSize(width: 300, height: 450)
         popover.contentViewController = NSHostingController(
-            rootView: MenuBarBatteryView(openMainWindow: { [weak self] in
-                self?.popover.performClose(nil)
-                self?.openMainWindow()
-            })
+            rootView: MenuBarBatteryView(
+                openMainWindow: { [weak self] in
+                    self?.popover.performClose(nil)
+                    self?.openMainWindow()
+                },
+                onHeightChange: { [weak self] height in
+                    guard let self, height > 10 else { return }
+                    let newHeight = ceil(height) + 2
+                    if abs(self.popover.contentSize.height - newHeight) > 1 {
+                        self.popover.contentSize = NSSize(width: 300, height: newHeight)
+                    }
+                }
+            )
             .environmentObject(batteryMonitor)
             .frame(width: 300)
         )
     }
 
     private func bindUpdates() {
+        // DispatchQueue.main, not RunLoop.main: the RunLoop scheduler only runs
+        // in the default mode, so icon updates would stall during menu tracking.
         batteryMonitor.$snapshot
             .combineLatest(batteryMonitor.$estimate)
-            .receive(on: RunLoop.main)
+            .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 }
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _, _ in
-                self?.updateStatusButton()
+                MainActor.assumeIsolated {
+                    self?.updateStatusButton()
+                }
             }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.updateStatusButton()
+            .map { _ in () }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.updateStatusButton()
+                }
             }
             .store(in: &cancellables)
     }

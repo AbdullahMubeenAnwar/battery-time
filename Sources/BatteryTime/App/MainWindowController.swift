@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 final class MainWindowController {
     private let batteryMonitor: BatteryMonitor
     private var window: NSWindow?

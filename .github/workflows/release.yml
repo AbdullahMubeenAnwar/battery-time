@@ -9,7 +9,7 @@ on:
 jobs:
   build-and-release:
     name: Build DMG & publish release
-    runs-on: macos-latest   # Requires macOS 26 SDK (Xcode 17+)
+    runs-on: macos-latest
 
     permissions:
       contents: write       # needed to create the GitHub Release
@@ -46,7 +46,7 @@ jobs:
             2. Open the DMG, drag Battery Time → Applications
             3. Launch — battery icon appears in your menu bar
 
-            **Requires macOS 26 (Tahoe) or later.**
+            **Requires macOS 13 (Ventura) or later.** Liquid glass UI on macOS 26 (Tahoe); material fallback on older versions.
           files: release/BatteryTime-*.dmg
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
