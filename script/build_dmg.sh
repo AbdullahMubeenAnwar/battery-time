@@ -15,14 +15,14 @@ get_version() {
     "$APP_BUNDLE/Contents/Info.plist" 2>/dev/null || echo "1.0"
 }
 
-echo "→ Building $APP_NAME…"
+echo "Building ${APP_NAME}..."
 "$ROOT_DIR/script/build_and_run.sh" build
 
 VERSION="$(get_version)"
 DMG_NAME="${APP_NAME}-${VERSION}.dmg"
 DMG_PATH="$RELEASE_DIR/$DMG_NAME"
 
-echo "→ Staging app bundle…"
+echo "Staging app bundle..."
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 cp -R "$APP_BUNDLE" "$STAGING_DIR/"
@@ -31,7 +31,7 @@ ln -s /Applications "$STAGING_DIR/Applications"
 mkdir -p "$RELEASE_DIR"
 rm -f "$DMG_PATH"
 
-echo "→ Creating DMG…"
+echo "Creating DMG..."
 hdiutil create \
   -volname "Battery Time" \
   -srcfolder "$STAGING_DIR" \
@@ -42,4 +42,4 @@ hdiutil create \
 
 rm -rf "$STAGING_DIR"
 
-echo "✓ $DMG_PATH"
+echo "Done: ${DMG_PATH}"
