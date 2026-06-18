@@ -1,7 +1,21 @@
+import AppKit
 import SwiftUI
+
+private struct OpenBatterySettingsKey: EnvironmentKey {
+    nonisolated static let defaultValue: () -> Void = {}
+}
+
+extension EnvironmentValues {
+    var openBatterySettings: () -> Void {
+        get { self[OpenBatterySettingsKey.self] }
+        set { self[OpenBatterySettingsKey.self] = newValue }
+    }
+}
 
 struct TitlebarActionsView: View {
     let refresh: () -> Void
+
+    @Environment(\.openBatterySettings) private var openBatterySettings
 
     var body: some View {
         HStack(spacing: 3) {
@@ -14,9 +28,7 @@ struct TitlebarActionsView: View {
             TitlebarToolbarButton(
                 title: "Open Battery Time settings",
                 systemImage: "gearshape",
-                action: {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                }
+                action: openBatterySettings
             )
 
             TitlebarActionDivider()

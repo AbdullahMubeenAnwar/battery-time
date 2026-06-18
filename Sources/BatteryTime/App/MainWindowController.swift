@@ -4,10 +4,12 @@ import SwiftUI
 @MainActor
 final class MainWindowController {
     private let batteryMonitor: BatteryMonitor
+    private let openSettings: () -> Void
     private var window: NSWindow?
 
-    init(batteryMonitor: BatteryMonitor) {
+    init(batteryMonitor: BatteryMonitor, openSettings: @escaping () -> Void) {
         self.batteryMonitor = batteryMonitor
+        self.openSettings = openSettings
     }
 
     func show() {
@@ -24,6 +26,7 @@ final class MainWindowController {
 
         let contentView = ContentView()
             .environmentObject(batteryMonitor)
+            .environment(\.openBatterySettings, openSettings)
             .frame(minWidth: 760, minHeight: 480)
 
         let window = NSWindow(

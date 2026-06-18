@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 
 @MainActor
 final class BatteryTimeAppModel: ObservableObject {
@@ -12,10 +13,17 @@ final class BatteryTimeAppModel: ObservableObject {
     // nonisolated deinit can remove them.
     private nonisolated(unsafe) var launchObserver: NSObjectProtocol?
     private nonisolated(unsafe) var showWindowObserver: NSObjectProtocol?
+    private var settingsWindowController: NSWindowController?
 
     init() {
         let batteryMonitor = BatteryMonitor()
-        let mainWindowController = MainWindowController(batteryMonitor: batteryMonitor)
+
+        // Use a box so we can fill in the real closure after self is initialized.
+        var openSettingsImpl: (() -> Void)?
+        let mainWindowController = MainWindowController(
+            batteryMonitor: batteryMonitor,
+            openSettings: { openSettingsImpl?() }
+        )
 
         self.batteryMonitor = batteryMonitor
         self.mainWindowController = mainWindowController
@@ -48,6 +56,25 @@ final class BatteryTimeAppModel: ObservableObject {
                 mainWindowController.show()
             }
         }
+
+        // All stored properties initialized — self is available now.
+        openSettingsImpl = { [weak self] in self?.showSettings() }
+    }
+
+    private func showSettings() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let wc = settingsWindowController {
+            wc.showWindow(nil)
+            return
+        }
+        let view = SettingsView().environmentObject(batteryMonitor)
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.title = "Settings"
+        window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false
+        let wc = NSWindowController(window: window)
+        settingsWindowController = wc
+        wc.showWindow(nil)
     }
 
     deinit {
