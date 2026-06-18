@@ -13,10 +13,6 @@ macOS menu bar app for real-time battery monitoring
 
 [Download](https://github.com/AbdullahMubeenAnwar/battery-time/releases/latest) · [Build from source](#build-from-source) · [Contributing](#contributing)
 
-<br />
-
-<video src="Assets/demo.mp4" autoplay loop muted playsinline width="760"></video>
-
 </div>
 
 <br />
@@ -56,6 +52,13 @@ No subscriptions. No telemetry. Fully open source.
 2. Download `BatteryTime-x.x.dmg`
 3. Open the DMG → drag Battery Time to Applications
 4. Launch and the battery icon appears in your menu bar
+
+The app is not yet notarized, so macOS Gatekeeper blocks the first launch. To open it:
+
+- **Right-click** Battery Time in Applications → **Open** → **Open** in the dialog, **or**
+- run `xattr -dr com.apple.quarantine /Applications/Battery\ Time.app`
+
+You only need to do this once.
 
 Requires **macOS 13 (Ventura)** or later. Liquid glass UI is shown on macOS 26 (Tahoe); older versions use a material fallback.
 

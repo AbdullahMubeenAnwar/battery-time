@@ -34,7 +34,7 @@ enum BatteryTimeAppSettings {
     static let defaultXLBatterySize = false
     static let defaultChargerStateInsideBattery = true
     static let defaultHideAdditionalWhenFull = true
-    static let defaultLaunchAtLoginEnabled = true
+    static let defaultLaunchAtLoginEnabled = false
 
     // Popover defaults
     static let defaultPopoverShowDetails        = true

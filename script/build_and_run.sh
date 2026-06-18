@@ -64,11 +64,9 @@ build_app() {
 	    -target "$(uname -m)-apple-macosx13.0" \
 	    "${sdk_flags[@]+"${sdk_flags[@]}"}" \
 	    -framework SwiftUI \
-	    -framework Charts \
 	    -framework AppKit \
 	    -framework IOKit \
 	    -framework ServiceManagement \
-	    -lsqlite3 \
 	    -o "$BUILD_BINARY" \
 	    "${source_files[@]}"
 }

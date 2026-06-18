@@ -14,10 +14,8 @@ let package = Package(
         .executableTarget(
             name: "BatteryTime",
             linkerSettings: [
-                .linkedFramework("Charts"),
                 .linkedFramework("IOKit"),
-                .linkedFramework("ServiceManagement"),
-                .linkedLibrary("sqlite3")
+                .linkedFramework("ServiceManagement")
             ]
         )
     ]
