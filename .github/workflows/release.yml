@@ -9,7 +9,9 @@ on:
 jobs:
   build-and-release:
     name: Build DMG & publish release
-    runs-on: macos-latest
+    # Must be a runner whose default SDK is macOS 26+, otherwise the liquid
+    # glass code (#if HAS_MACOS26_SDK) is compiled out of the shipped binary.
+    runs-on: macos-26
 
     permissions:
       contents: write       # needed to create the GitHub Release
@@ -21,8 +23,14 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select --switch /Applications/Xcode.app
 
-      - name: Show SDK info
-        run: xcrun --show-sdk-version
+      - name: Verify macOS 26 SDK (guards liquid glass)
+        run: |
+          sdk_ver="$(xcrun --sdk macosx --show-sdk-version)"
+          echo "macOS SDK: $sdk_ver"
+          if [[ "${sdk_ver%%.*}" -lt 26 ]]; then
+            echo "::error::SDK $sdk_ver < 26 — liquid glass would be stripped. Aborting release." >&2
+            exit 1
+          fi
 
       - name: Build app
         run: ./script/build_and_run.sh build
