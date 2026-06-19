@@ -5,6 +5,9 @@ MODE="${1:-run}"
 APP_NAME="BatteryTime"
 BUNDLE_ID="com.abdullah.batterytime"
 MIN_SYSTEM_VERSION="13.0"
+# Release CI exports BATTERYTIME_VERSION from the git tag (e.g. 1.1).
+# Falls back to a dev default for local builds.
+APP_VERSION="${BATTERYTIME_VERSION:-1.0}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -98,9 +101,9 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundleName</key>
   <string>Battery Time</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0</string>
+  <string>$APP_VERSION</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$APP_VERSION</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
