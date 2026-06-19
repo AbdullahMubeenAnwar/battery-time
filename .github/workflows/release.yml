@@ -20,6 +20,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Select Xcode
         run: sudo xcode-select --switch /Applications/Xcode.app
 
@@ -34,13 +38,13 @@ jobs:
 
       - name: Build app
         run: ./script/build_and_run.sh build
+        env:
+          BATTERYTIME_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Build DMG
         run: ./script/build_dmg.sh
-
-      - name: Get version from tag
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        env:
+          BATTERYTIME_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
